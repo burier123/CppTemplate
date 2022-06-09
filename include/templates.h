@@ -65,10 +65,120 @@ struct static_string {
 
 };
 
+template <>
+struct static_string<0> {
+  static constexpr auto size = 0;
+  char content[1];
+  constexpr static_string(const char *): content{'\0'} {}
+  constexpr static_string(char): content{'\0'} {}
+};
+
 template<size_t N1, size_t N2>
 constexpr static_string<N1+N2> operator+ (const static_string<N1>& s1, const static_string<N2>& s2) {
   return static_string<N1+N2>(s1, s2,
                               typename make_index_sequence<N1>::result {},
                               typename make_index_sequence<N2>::result {});
 }
+
+template <size_t N, typename = std::enable_if<(N > 0)>>
+constexpr static_string<N> operator+ (const static_string<N>& s1, const static_string<0>& s2) {
+  return s1;
+}
+
+template <size_t N, typename = std::enable_if<(N > 0)>>
+constexpr static_string<N> operator+ (const static_string<0>& s1, const static_string<N>& s2) {
+  return s2;
+}
+
+template <size_t N, typename = std::enable_if<(N > 0)>>
+constexpr static_string<N-1> make_static_string(const char (&s)[N]) {
+  return static_string<N-1>(s);
+}
+
+template <size_t N, typename = std::enable_if<(N > 0)>>
+constexpr static_string<N-1> make_static_string(const char (&&s)[N]) {
+  return static_string<N-1>(s);
+}
+
+template<typename T>
+struct type_format;
+
+template<>
+struct type_format<char> {
+  static constexpr auto fmt_str = make_static_string("%c");
+};
+
+template<>
+struct type_format<int8_t> {
+  static constexpr auto fmt_str = make_static_string("%hhd");
+};
+
+template<>
+struct type_format<uint8_t> {
+  static constexpr auto fmt_str = make_static_string("%hhu");
+};
+
+template<>
+struct type_format<int16_t> {
+  static constexpr auto fmt_str = make_static_string("%hd");
+};
+
+template<>
+struct type_format<uint16_t> {
+  static constexpr auto fmt_str = make_static_string("%hu");
+};
+
+template<>
+struct type_format<int32_t> {
+  static constexpr auto fmt_str = make_static_string("%d");
+};
+
+template<>
+struct type_format<uint32_t> {
+  static constexpr auto fmt_str = make_static_string("%u");
+};
+
+template<>
+struct type_format<int64_t> {
+  static constexpr auto fmt_str = make_static_string("%ld");
+};
+
+template<>
+struct type_format<uint64_t> {
+  static constexpr auto fmt_str = make_static_string("%lu");
+};
+
+template<>
+struct type_format<float> {
+  static constexpr auto fmt_str = make_static_string("%f");
+};
+
+template<>
+struct type_format<double> {
+  static constexpr auto fmt_str = make_static_string("%lf");
+};
+
+template<>
+struct type_format<char *> {
+  static constexpr auto fmt_str = make_static_string("%s");
+};
+
+template<typename T>
+using remove_cvr = std::remove_reference<typename std::remove_cv<T>::type>;
+
+template<typename T, typename... Args>
+struct format_string {
+  static constexpr auto str = type_format<typename remove_cvr<T>::type>::fmt_str + format_string<Args...>::str;
+};
+
+template<typename T>
+struct format_string<T> {
+  static constexpr auto str = type_format<typename remove_cvr<T>::type>::fmt_str;
+};
+
+template <typename... Args>
+constexpr decltype(format_string<Args...>::str) get_format_string(Args... args) {
+  return format_string<Args...>::str;
+}
+
 }
